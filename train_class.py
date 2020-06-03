@@ -4,6 +4,8 @@ from torch import nn,optim
 from torch.autograd import Variable
 from torchvision import transforms,datasets
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
 from pathlib import Path
 import requests
 import cv2
@@ -18,8 +20,8 @@ def loss_func(xb,yb):
 class myModle(nn.Module):
     def __init__(self):
         super(myModle,self).__init__()
-        self.conv1 = nn.Sequential(nn.Conv2d(1,64,3,1,1),nn.ReLU(),nn.MaxPool2d(2,2))
-        self.conv2 = nn.Sequential(nn.Conv2d(64,128,3,padding=1),nn.ReLU(),nn.MaxPool2d(2,2))
+        self.conv1 = nn.Sequential(nn.Conv2d(1,64,3,1,1),nn.ReLU(),nn.BatchNorm2d(64),nn.MaxPool2d(2,2))
+        self.conv2 = nn.Sequential(nn.Conv2d(64,128,3,padding=1),nn.ReLU(),nn.MaxPool2d(2,2),nn.Dropout2d(0.3))
         self.dense_1 = nn.Sequential(nn.Linear(7*7*128,128),nn.ReLU())
         self.dense_2 = nn.Sequential(nn.Linear(128,10))
 
@@ -37,7 +39,9 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = myModle().to(device)
 optimizer = optim.Adam(model.parameters())
 criterion = nn.CrossEntropyLoss()
-
+dummy_input = torch.rand(128, 1, 28, 28)
+with SummaryWriter() as w:
+    w.add_graph(model,dummy_input,verbose=True)
 def train():
     for epoch in range(epochs):
         for i,data in enumerate(train_loader):
@@ -49,6 +53,7 @@ def train():
             
             loss.backward()
             optimizer.step()
+            writer.add_scalar('train_loss',loss.item(),len(train_loader)*epoch+i)
             if i%100 == 0:
                 print(loss.item())
 
@@ -66,6 +71,7 @@ def test():
         print("correct: ",correct)
         print("test acc:{0}".format(correct.item()/total))
 
-train()
-model.eval()
-test()
+if __name__ == '__main__':
+    train()
+    model.eval()
+    test()
