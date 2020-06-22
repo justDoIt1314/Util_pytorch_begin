@@ -24,9 +24,9 @@ print(output)
 # indx2 = torch.argmax(s2,1)
 # sum = torch.sum(indx1 == indx2)
 # sum.item()
-class VGG_1(nn.Module):
+class ResNet_50(nn.Module):
     def __init__(self,num_classes):
-        super(VGG_1,self).__init__()
+        super(ResNet_50,self).__init__()
         # self.vgg = models.vgg16()
         # self.vgg.classifier = nn.Sequential(
         #     nn.Linear(512 * 7 * 7, 4096),
@@ -60,10 +60,16 @@ def loadImage(train_path):
 
 
 def main():
+    ################# 加载模型  ####################################
+    model_path = "./dog_cat_horse_class/class_model.pth"
     writer = SummaryWriter()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = VGG_1(num_classes=3)   
+    model = ResNet_50(num_classes=3)  
+    if os.path.exists(model_path):
+        model = torch.load(model_path) 
     model.to(device)
+
+    ################## 构建数据集  ##########################
     data_transform = transforms.Compose([
         transforms.Resize((224,224)),
         transforms.RandomRotation(1.0),
@@ -77,10 +83,15 @@ def main():
     dataloaders = DataLoader(train_set,batch_size,shuffle=True,num_workers=4)
     test_loaders = DataLoader(test_set,batch_size,shuffle=True,num_workers=4)
     test_loaders_size = len(test_loaders)
+    dataloaders_size = len(dataloaders)
     epochs = 200
+
+    ############  选择优化器和损失函数 ########################
     loss_criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(),1e-3)
-    dataloaders_size = len(dataloaders)
+    
+
+    ############  开始训练和评估  #################################
     for epoch in range(epochs):
         model.train()
         for idx,(inputs,labels) in enumerate(dataloaders):
