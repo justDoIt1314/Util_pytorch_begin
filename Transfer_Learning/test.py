@@ -10,7 +10,6 @@ import matplotlib.pyplot as plt
 from transfer_model import imshow,visualize_model
 import os
 
-
 def visualize_model(model, num_images=6):
     was_training = model.training
     model.eval()
@@ -67,3 +66,5 @@ if __name__ == '__main__':
     class_names = image_datasets['train'].classes
     model_ft = torch.load('binClass.pth')
     visualize_model(model_ft)
+    plt.ioff()
+    plt.show()

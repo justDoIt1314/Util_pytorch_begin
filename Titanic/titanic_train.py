@@ -1,5 +1,6 @@
 from __future__ import print_function,division
 import torch
+import sys
 from torch import optim,nn,device
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
@@ -13,7 +14,9 @@ import time,os,copy
 import cv2
 from sklearn.ensemble import RandomForestClassifier
 import pandas as pd
-
+#dirs = os.listdir("D:/MyWork/Yolo_mark-master/x64/Release/mydata4/img")
+for dir in dirs:
+    print(dir)
 def load_csv_to_numpy():
     train_data = pd.read_csv("./Titanic/train.csv",header=None)
     test_data = pd.read_csv("./Titanic/test.csv",header=None)
@@ -33,52 +36,25 @@ def load_csv_to_numpy():
     train_labels = np.squeeze(train_labels)
     train_labels = np.asarray(train_labels,dtype='int64')
 
-    train_data = np.delete(train_data,[0,1,3,8],1)
-    test_data = np.delete(test_data,[0,2,7],1)
+    train_data = np.delete(train_data,[0,1,3,8,10,11],1)
+    test_data = np.delete(test_data,[0,2,7,9,10],1)
 
     
     train_features = []
     test_features = []
-    for j in range(8):
+    for j in range(6):
         fea = train_data[:,j]
         test_fea = test_data[:,j]
-        if j == 7:
-            for i in range(len(fea)):
-                if fea[i] == 'S':
-                    fea[i] = 0.3
-                elif fea[i] == 'Q':
-                    fea[i] = 0.6
-                else:
-                    fea[i] = 1
-            for i in range(len(test_fea)):
-                if test_fea[i] == 'S':
-                    test_fea[i] = 0.3
-                elif test_fea[i] == 'Q':
-                    test_fea[i] = 0.6
-                else:
-                    test_fea[i] = 1
-            fea = np.asarray(fea,dtype='float')
-            test_fea = np.asarray(test_fea,dtype='float')
-        elif j == 1:
+        
+        if j == 1:
             fea = np.where(fea=='male',1,0)
             test_fea = np.where(test_fea=='male',1,0)
-        elif j == 2:
+        else:
             fea = np.asarray(fea,dtype='float')
             fea = fea / np.max(fea)
 
             test_fea = np.asarray(test_fea,dtype='float')
             test_fea = test_fea / np.max(test_fea)
-
-
-        elif j == 6:
-            fea = np.where(fea=='0',0,1)
-            test_fea = np.where(test_fea=='0',0,1)
-        else:
-            fea = np.asarray(fea,dtype='float')
-            #fea = fea / np.max(fea)
-
-            test_fea = np.asarray(test_fea,dtype='float')
-            #test_fea = test_fea / np.max(test_fea)
 
         train_features.append(fea)
         test_features.append(test_fea)
@@ -94,19 +70,17 @@ def load_csv_to_numpy():
 class TitanicNet(nn.Module):
     def __init__(self):
         super(TitanicNet,self).__init__()
-        self.block_1 = nn.Sequential(nn.Linear(8,64),nn.BatchNorm1d(64),nn.Sigmoid(),nn.Dropout(0.2))
-        self.block_2 = nn.Sequential(nn.Linear(64,128),nn.BatchNorm1d(128),nn.Sigmoid(),nn.Dropout(0.2))
-        self.block_3 = nn.Sequential(nn.Linear(128,256),nn.BatchNorm1d(256),nn.Sigmoid(),nn.Dropout(0.3))
-        self.block_4 = nn.Sequential(nn.Linear(256,1024),nn.BatchNorm1d(1024),nn.ReLU(),nn.Dropout(0.3))
-        self.block_5 = nn.Sequential(nn.Linear(1024,32),nn.BatchNorm1d(32),nn.ReLU(),nn.Dropout(0.2))
-        self.block_6 = nn.Sequential(nn.Linear(32,2),nn.Softmax())
+        self.block_1 = nn.Sequential(nn.Linear(6,32),nn.BatchNorm1d(32),nn.Sigmoid(),nn.Dropout(0.3))
+        self.block_2 = nn.Sequential(nn.Linear(32,128),nn.BatchNorm1d(128),nn.Sigmoid(),nn.Dropout(0.3))
+        self.block_3 = nn.Sequential(nn.Linear(128,32),nn.BatchNorm1d(32),nn.Sigmoid(),nn.Dropout(0.3))
+        self.block_4 = nn.Sequential(nn.Linear(32,16),nn.BatchNorm1d(16),nn.Sigmoid(),nn.Dropout(0.3))
+        self.block_5 = nn.Sequential(nn.Linear(16,2),nn.Softmax())
     def forward(self,x):
         x = self.block_1(x)
         x = self.block_2(x)
         x = self.block_3(x)
         x = self.block_4(x)
         x = self.block_5(x)
-        x = self.block_6(x)
         return x
 
 def main():
@@ -124,6 +98,14 @@ def main():
     loss_criterion = nn.CrossEntropyLoss()
     opitimizer = optim.Adam(model.parameters(),lr=lr)
     train_features,train_labels,test_features = load_csv_to_numpy()
+    eval_features = train_features[:100]
+    eval_labels = train_labels[:100]
+    train_features = train_features[100:]
+    train_labels = train_labels[100:]
+    
+    eval_features = torch.from_numpy(eval_features)
+    eval_labels = torch.from_numpy(eval_labels)
+
     train_features = torch.from_numpy(train_features)
     train_labels = torch.from_numpy(train_labels)
     test_features = torch.from_numpy(test_features)
@@ -131,28 +113,32 @@ def main():
     train_loaders = DataLoader(train_set,batch_size=batch_size,shuffle=True,num_workers=2)
     dataloaders_size = len(train_loaders)
 
-
+    inputs = train_features.to(device)
+    labels = train_labels.to(device)
+    eval_features = eval_features.to(device)
+    eval_labels = eval_labels.to(device)
     for epoch in range(epochs):
-        for idx,(inputs,labels) in enumerate(train_loaders):
-            inputs = inputs.to(device)
-            labels = labels.to(device)
-            output = model(inputs)
-            loss = loss_criterion(output,labels)
-            indice = torch.argmax(output,1)
-            #print(indice)
-            correct_sum = torch.sum(indice == labels)
-            writer.add_scalar("train_loss",loss.item(),idx+epoch*dataloaders_size)
-            opitimizer.zero_grad()
-            loss.backward()
-            opitimizer.step()
-            print("epoch: {0}/{1}, batch:{2}/{3} loss: {4}, accuracy:{5}".format(epoch,epochs,idx,dataloaders_size,loss.item(),correct_sum.item()/batch_size))
+        #for idx,(inputs,labels) in enumerate(train_loaders):
+        # inputs = inputs.to(device)
+        # labels = labels.to(device)
+        output = model(inputs)
+        loss = loss_criterion(output,labels)
+        indice = torch.argmax(output,1)
+        #print(indice)
+        correct_sum = torch.sum(indice == labels)
+        #writer.add_scalar("train_loss",loss.item(),idx+epoch*dataloaders_size)
+        opitimizer.zero_grad()
+        loss.backward()
+        opitimizer.step()
+        
         if epoch %100 == 0:
+            print("epoch: {0}/{1}, loss: {2}, accuracy:{3}".format(epoch,epochs,loss.item(),correct_sum.item()/791))
             torch.save(model,"./Titanic/titanic.pth")
-        if epoch % 10 == 0:
-            test_features = test_features.to(device)
-            test_out = model(test_features)
-            indice_2 = torch.argmax(test_out,1)
-            print(indice_2)
+            eval_out = model(eval_features)
+            indice_2 = torch.argmax(eval_out,1)
+            eval_sum = torch.sum(indice_2 == eval_labels)
+            print("------------------------\n eval_accuracy:",eval_sum.item()/100)
+            
 
     test_features = test_features.to(device)
     output = model(test_features)

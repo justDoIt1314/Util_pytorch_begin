@@ -2,11 +2,15 @@ import os
 import numpy as np
 import torch
 import PIL
+import glob
+import cv2
 from PIL import Image
+import matplotlib.pyplot as plt
 import transforms as T
 from engine import train_one_epoch, evaluate
 import utils
 import torchvision
+from torchvision.models import resnet50
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 from torchvision.models.detection.backbone_utils import resnet_fpn_backbone
@@ -26,17 +30,27 @@ https://github.com/pytorch/vision.git
 首先，将这些文件拷贝过来.这一步也是折腾半天，官网教程没有说的很清楚，原来是在GitHub/Pytorch里面有一个vision模块，里面包含了utils.py,transform.py
 h和engine.py这些文件。
 '''
-class PennFudanDataset(object):
+class PennFudanDataset(torch.utils.data.Dataset):
     def __init__(self,root,transforms):
         self.root = root
         self.transforms = transforms
-        self.imgs = list(sorted(os.listdir(os.path.join(root,"PNGImages"))))
-        self.masks = list(sorted(os.listdir(os.path.join(root,"PedMasks"))))
+        
+        self.imgs = list(sorted(glob.glob(os.path.join(self.root, 'PNGImages/*'))))
+        self.masks = list(sorted(glob.glob(os.path.join(self.root, 'PedMasks/*'))))
+        # self.imgs = list(sorted(os.listdir(os.path.join(root,"PNGImages"))))
+        # self.masks = list(sorted(os.listdir(os.path.join(root,"PedMasks"))))
     def __getitem__(self, idx):
         # load images ad masks
         img_path = os.path.join(self.root, "PNGImages", self.imgs[idx])
         mask_path = os.path.join(self.root, "PedMasks", self.masks[idx])
         img = Image.open(img_path).convert("RGB")
+
+        
+        # Test
+        # plt.figure('z')
+        # cv2.imshow("img",np.array(img))
+        # cv2.waitKey()
+      
         # note that we haven't converted the mask to RGB,
         # because each color corresponds to a different instance
         # with 0 being background
@@ -132,21 +146,22 @@ def main():
     # our dataset has two classes only - background and person
     num_classes = 2
     # use our dataset and defined transformations
+    
     dataset = PennFudanDataset('G:/Course/Algorithm/Util/PennFudan/PennFudanPed', get_transform(train=True))
     dataset_test = PennFudanDataset('G:/Course/Algorithm/Util/PennFudan/PennFudanPed', get_transform(train=False))
 
     # split the dataset in train and test set
     indices = torch.randperm(len(dataset)).tolist()
-    dataset = torch.utils.data.Subset(dataset, indices[:-50])
+    # dataset = torch.utils.data.Subset(dataset, indices[:-50])
     dataset_test = torch.utils.data.Subset(dataset_test, indices[-50:])
 
     # define training and validation data loaders
     data_loader = torch.utils.data.DataLoader(
-        dataset, batch_size=2, shuffle=True, num_workers=4,
-        collate_fn=utils.collate_fn)
+        dataset, batch_size=2, shuffle=True, num_workers=0,collate_fn=utils.collate_fn)
 
+    #data = next(iter(data_loader))
     data_loader_test = torch.utils.data.DataLoader(
-        dataset_test, batch_size=1, shuffle=False, num_workers=4,
+        dataset_test, batch_size=1, shuffle=False, num_workers=0,
         collate_fn=utils.collate_fn)
 
     # get the model using our helper function

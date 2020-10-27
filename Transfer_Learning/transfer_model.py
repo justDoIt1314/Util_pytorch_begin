@@ -129,10 +129,11 @@ if __name__ == '__main__':
     data_dir = "G:/Course/Algorithm/Util/Transfer_Learning/hymenoptera_data/"
     image_datasets = {x:datasets.ImageFolder(os.path.join(data_dir,x),data_transforms[x]) for x in ['train','val']}
     dataloaders = {x:DataLoader(image_datasets[x],batch_size=20,shuffle=True,num_workers=4) for x in ['train','val']}
+    
+    data = next(iter(dataloaders['train']))
     dataset_sizes = {x:len(image_datasets[x]) for x in ['train','val']}
     class_names = image_datasets['train'].classes
     device = device("cuda:0" if torch.cuda.is_available() else 'cpu')
-
     model_ft = models.resnet18(pretrained=True)
     num_ftrs = model_ft.fc.in_features
     # Here the size of each output sample is set to 2.

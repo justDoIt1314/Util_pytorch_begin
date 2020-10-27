@@ -17,6 +17,7 @@ test_loader = DataLoader(test_dataset,batch_size=batch_size,shuffle=True)
 
 def loss_func(xb,yb):
     return nn.MSELoss(xb,yb)
+
 class myModle(nn.Module):
     def __init__(self):
         super(myModle,self).__init__()
@@ -40,8 +41,8 @@ model = myModle().to(device)
 optimizer = optim.Adam(model.parameters())
 criterion = nn.CrossEntropyLoss()
 dummy_input = torch.rand(128, 1, 28, 28)
-with SummaryWriter() as w:
-    w.add_graph(model,dummy_input,verbose=True)
+# with SummaryWriter() as w:
+#     w.add_graph(model,dummy_input,verbose=True)
 def train():
     for epoch in range(epochs):
         for i,data in enumerate(train_loader):
@@ -53,8 +54,8 @@ def train():
             
             loss.backward()
             optimizer.step()
-            writer.add_scalar('train_loss',loss.item(),len(train_loader)*epoch+i)
-            if i%100 == 0:
+            #writer.add_scalar('train_loss',loss.item(),len(train_loader)*epoch+i)
+            if i%10 == 0:
                 print(loss.item())
 
 def test():
